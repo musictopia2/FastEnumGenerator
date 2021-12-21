@@ -12,7 +12,7 @@ public class MySourceGenerator : IIncrementalGenerator
             = context.CompilationProvider.Combine(declares.Collect());
         context.RegisterSourceOutput(compilation, (spc, source) =>
         {
-            Execute(source.Item2, spc);
+            Execute(source.Item1, source.Item2, spc);
         });
     }
     private bool IsSyntaxTarget(SyntaxNode syntax)
@@ -35,7 +35,7 @@ public class MySourceGenerator : IIncrementalGenerator
     }
     private MainInfo? GetTarget(GeneratorSyntaxContext context)
     {
-        var record = context.GetRecordNode(); //can use the sematic model at this stage
+        var record = context.GetRecordNode();
         var symbol = context.GetRecordSymbol(record);
         var list = record.DescendantNodes().OfType<EnumDeclarationSyntax>();
         MainInfo output = new();
@@ -48,7 +48,7 @@ public class MySourceGenerator : IIncrementalGenerator
         }
         if (list.Count() == 0)
         {
-            return null; //because no enums.
+            return null;
         }
         if (list.Count() > 1)
         {
@@ -64,7 +64,7 @@ public class MySourceGenerator : IIncrementalGenerator
         var nexts = singleEnum.DescendantNodes().OfType<EnumMemberDeclarationSyntax>().ToBasicList();
         if (nexts.Count == 0)
         {
-            return output; //because there was none.  means later will raise diagnostic error
+            return output;
         }
         int oldValue = 0;
         foreach (var item in nexts)
@@ -128,9 +128,37 @@ public class MySourceGenerator : IIncrementalGenerator
         }
         return output;
     }
-    private void Execute(ImmutableArray<MainInfo> list, SourceProductionContext context)
+    private BasicList<string> GetConverterList(IEnumerable<MainInfo> list)
+    {
+        BasicList<string> output = new();
+        foreach (var item in list)
+        {
+            output.Add($"        {item.RecordName}.ZAddConverter();");
+        }
+        return output;
+    }
+    private BasicList<string> GetNamesspaceList(IEnumerable<MainInfo> list)
+    {
+        BasicList<string> output = new();
+        HashSet<string> others = new();
+        foreach (var item in list)
+        {
+            others.Add(item.NameSpaceName);
+        }
+        foreach (var item in others)
+        {
+            output.Add($"using {item};");
+        }
+        return output;
+    }
+    private void Execute(Compilation compilation, ImmutableArray<MainInfo> list, SourceProductionContext context)
     {
         var others = list.Distinct();
+        if (others.Count() == 0)
+        {
+            return;
+        }
+        string source;
         foreach (var info in others)
         {
             if (info.RecordName.StartsWith("Enum") == false)
@@ -161,7 +189,7 @@ public class MySourceGenerator : IIncrementalGenerator
             BasicList<string> staticList = GetStaticList(info);
             BasicList<string> nameList = GetNameList(info.Enums);
             BasicList<string> valueList = GetValueList(info.Enums);
-            string source = $@"using System.Text.Json;
+            source = $@"using System.Text.Json;
 using System.Text.Json.Serialization;
 namespace {info.NameSpaceName};
 public partial record struct {info.RecordName} : IFastEnumList<{info.RecordName}>, IComparable<{info.RecordName}>
@@ -261,6 +289,19 @@ public partial record struct {info.RecordName} : IFastEnumList<{info.RecordName}
             IAddSource finals = new IncrementalExecuteAddSource(context);
             finals.AddSource($"generatedSource{info.RecordName}.g", source);
         }
+        string ns = $"{compilation.AssemblyName!}.JsonConverterProcesses";
+        BasicList<string> firsts = GetNamesspaceList(others);
+        BasicList<string> seconds = GetConverterList(others);
+        source = $@"{string.Join(Environment.NewLine, firsts)}
+namespace {ns};
+public static class GlobalJsonConverterClass
+{{
+    public static void AddEnumConverters()
+    {{
+{string.Join(Environment.NewLine, seconds)}
+    }}
+}}";
+        context.AddSource("generatedglobal.g", source);
     }
     //these are all the possible errors that will mean you cannot even create the custom enum since rules were violated.
 #pragma warning disable RS2008 // Enable analyzer release tracking
@@ -309,4 +350,5 @@ public partial record struct {info.RecordName} : IFastEnumList<{info.RecordName}
         DiagnosticSeverity.Error,
         true
         );
+
 }
