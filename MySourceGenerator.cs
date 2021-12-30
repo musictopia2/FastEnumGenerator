@@ -1,6 +1,6 @@
 ﻿namespace FastEnumGenerator;
-[Generator] //this is important so it knows this class is a generator which will generate code for a class using it.
-public class MySourceGenerator : IIncrementalGenerator
+[Generator]
+public partial class MySourceGenerator : IIncrementalGenerator
 {
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -92,216 +92,11 @@ public class MySourceGenerator : IIncrementalGenerator
         }
         return output;
     }
-    private BasicList<string> GetStaticList(MainInfo info)
-    {
-        BasicList<string> output = new();
-        foreach (var item in info.Enums)
-        {
-            output.Add("    /// <summary>");
-            output.Add($"    /// value is {item.Value}");
-            output.Add("    /// </summary>");
-            output.Add($@"    public static {info.RecordName} {item.Name} {{get; }} = new({item.Value}, ""{item.Name}"", ""{item.Words}"");");
-        }
-        return output;
-    }
-    private BasicList<string> GetNameList(BasicList<EnumInfo> enums)
-    {
-        BasicList<string> output = new();
-        foreach (var item in enums)
-        {
-            output.Add($@"        if (name == ""{item.Name}"")");
-            output.Add("        {");
-            output.Add($"            return {item.Name};");
-            output.Add("        }");
-        }
-        return output;
-    }
-    private BasicList<string> GetValueList(BasicList<EnumInfo> enums)
-    {
-        BasicList<string> output = new();
-        foreach (var item in enums)
-        {
-            output.Add($@"        if (value == {item.Value})");
-            output.Add("        {");
-            output.Add($"            return {item.Name};");
-            output.Add("        }");
-        }
-        return output;
-    }
-    private BasicList<string> GetConverterList(IEnumerable<MainInfo> list)
-    {
-        BasicList<string> output = new();
-        foreach (var item in list)
-        {
-            output.Add($"        {item.RecordName}.ZAddConverter();");
-        }
-        return output;
-    }
-    private BasicList<string> GetNamesspaceList(IEnumerable<MainInfo> list)
-    {
-        BasicList<string> output = new();
-        HashSet<string> others = new();
-        foreach (var item in list)
-        {
-            others.Add(item.NameSpaceName);
-        }
-        foreach (var item in others)
-        {
-            output.Add($"using {item};");
-        }
-        return output;
-    }
     private void Execute(Compilation compilation, ImmutableArray<MainInfo> list, SourceProductionContext context)
     {
         var others = list.Distinct();
-        if (others.Count() == 0)
-        {
-            return;
-        }
-        string source;
-        foreach (var info in others)
-        {
-            if (info.RecordName.StartsWith("Enum") == false)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(NotStartingEnum(info.RecordName), Location.None));
-                return;
-            }
-            if (info.NotReadOnly)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(NotReadOnly(info.RecordName), Location.None));
-                return;
-            }
-            if (info.TooManyInstances == true)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(TooManyEnums(info.RecordName), Location.None));
-                return;
-            }
-            if (info.NotPrivate)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(NeedsPrivateEnum(info.RecordName), Location.None));
-                return;
-            }
-            if (info.Enums.Count == 0)
-            {
-                context.ReportDiagnostic(Diagnostic.Create(NoEnums(info.RecordName), Location.None));
-                return;
-            }
-            BasicList<string> staticList = GetStaticList(info);
-            BasicList<string> nameList = GetNameList(info.Enums);
-            BasicList<string> valueList = GetValueList(info.Enums);
-            source = $@"using System.Text.Json;
-using System.Text.Json.Serialization;
-namespace {info.NameSpaceName};
-public partial record struct {info.RecordName} : IFastEnumList<{info.RecordName}>, IComparable<{info.RecordName}>
-{{
-    public static BasicList<{info.RecordName}> CompleteList {{ get; }} = new();
-    BasicList<{info.RecordName}> IFastEnumList<{info.RecordName}>.CompleteList => CompleteList;
-    public string Name {{ get; }} = """";
-    public int Value {{ get; }}
-    public string Words {{ get; }} = """";
-    private {info.RecordName}(int value, string name, string words)
-    {{
-        Value = value;
-        Name = name;
-        Words = words;
-        CompleteList.Add(this);
-        ZAddConverter();
-    }}
-    public {info.RecordName}()
-    {{
-        Value = {info.DefaultEnum!.Value};
-        Name = ""{info.DefaultEnum!.Name}"";
-        Words = ""{info.DefaultEnum!.Words}"";
-        ZAddConverter();
-    }}
-    static bool _didAdd;
-    internal static void ZAddConverter()
-    {{
-        if (_didAdd)
-        {{
-            return;
-        }}
-        js.GetCustomJsonSerializerOptions().Converters.Add(new {info.RecordName}Converter());
-        _didAdd = true;
-    }}
-    public override string ToString()
-    {{
-        return Words;
-    }}
-    private class {info.RecordName}Converter : JsonConverter<{info.RecordName}>
-    {{
-        public override {info.RecordName} Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {{
-            string value = reader.GetString()!;
-            return FromName(value);
-        }}
-        public override void Write(Utf8JsonWriter writer, {info.RecordName} value, JsonSerializerOptions options)
-        {{
-            if (value.IsNull)
-            {{
-                writer.WriteStringValue("""");
-                return;
-            }}
-            writer.WriteStringValue(value.Name);
-        }}
-    }}
-    public bool IsNull => string.IsNullOrWhiteSpace(Name);
-    public int CompareTo({info.RecordName} other)
-    {{
-        return Value.CompareTo(other.Value);
-    }}
-{string.Join(Environment.NewLine, staticList)}
-    public static {info.RecordName} FromValue(int value, bool showErrors = false)
-    {{
-{string.Join(Environment.NewLine, valueList)}
-        if (showErrors)
-        {{
-            throw new Exception($""No value found for {{ value}}"");
-        }}
-        return default;
-    }}
-    public static {info.RecordName} FromName(string name, bool showErrors = false)
-    {{
-{string.Join(Environment.NewLine, nameList)}
-        if (showErrors)
-        {{
-            throw new Exception($""No name found for {{ name}}"");
-        }}
-        return default;
-    }}
-    public static bool operator > ({info.RecordName} left, {info.RecordName} right)
-    {{
-        return left.Value > right.Value;
-    }}
-    public static bool operator < ({info.RecordName} left, {info.RecordName} right)
-    {{
-        return left.Value < right.Value;
-    }}
-    public static bool operator >= ({info.RecordName} left, {info.RecordName} right)
-    {{
-        return left.Value >= right.Value;
-    }}
-    public static bool operator <= ({info.RecordName} left, {info.RecordName} right)
-    {{
-        return left.Value <= right.Value;
-    }}
-}}";
-            IAddSource finals = new IncrementalExecuteAddSource(context);
-            finals.AddSource($"generatedSource{info.RecordName}.g", source);
-        }
-        string ns = $"{compilation.AssemblyName!}.JsonConverterProcesses";
-        BasicList<string> firsts = GetNamesspaceList(others);
-        BasicList<string> seconds = GetConverterList(others);
-        source = $@"{string.Join(Environment.NewLine, firsts)}
-namespace {ns};
-public static class GlobalJsonConverterClass
-{{
-    public static void AddEnumConverters()
-    {{
-{string.Join(Environment.NewLine, seconds)}
-    }}
-}}";
-        context.AddSource("generatedglobal.g", source);
+        Emitter emit = new(compilation, others, context);
+        emit.Emit();
     }
     //these are all the possible errors that will mean you cannot even create the custom enum since rules were violated.
 #pragma warning disable RS2008 // Enable analyzer release tracking
@@ -350,5 +145,4 @@ public static class GlobalJsonConverterClass
         DiagnosticSeverity.Error,
         true
         );
-
 }
