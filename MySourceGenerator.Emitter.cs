@@ -78,7 +78,10 @@ public partial class MySourceGenerator
             {
                 w.WriteLine(w =>
                 {
-                    w.Write(info.RecordName)
+                    w.GlobalWrite()
+                    .Write(info.NameSpaceName)
+                    .Write(".")
+                    .Write(info.RecordName)
                     .Write(".ZAddConverter();");
                 });
             }
