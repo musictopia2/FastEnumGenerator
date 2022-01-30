@@ -28,8 +28,17 @@ public partial class MySourceGenerator
                 {
                     w.WriteLine("Value = value;")
                     .WriteLine("Name = name;")
-                    .WriteLine("Words = words;")
-                    .WriteLine("CompleteList.Add(this);");
+                    .WriteLine("Words = words;");
+                    w.WriteLine(w =>
+                    {
+                        w.Write("if (Name != ")
+                        .AppendDoubleQuote("None")
+                        .Write(")");
+                    })
+                    .WriteCodeBlock(w =>
+                    {
+                        w.WriteLine("CompleteList.Add(this);"); //i cannot think of any situation where the enum list should include None.  None represents nothing being chosen.
+                    });
                     if (_info.IsColor)
                     {
                         //add more.
