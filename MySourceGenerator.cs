@@ -67,6 +67,9 @@ public partial class MySourceGenerator : IIncrementalGenerator
             return output;
         }
         int oldValue = 0;
+        int index = 0;
+        string transparentName = "#00FFFFFF";
+        bool hadDefault = false;
         foreach (var item in nexts)
         {
             var fins = item.DescendantNodes().OfType<EqualsValueClauseSyntax>().SingleOrDefault();
@@ -75,16 +78,45 @@ public partial class MySourceGenerator : IIncrementalGenerator
                 var aa = fins.Value.ToString();
                 oldValue = int.Parse(aa);
             }
+            string name = item.Identifier.ValueText;
+            
+            string possibleColor = name.ToColor(false);
+            if (possibleColor != "" && index == 0 && possibleColor != transparentName)
+            {
+                output.IsColor = true;
+                EnumInfo temps = new();
+                temps.Name = "None";
+                temps.Words = "None";
+                temps.Color = transparentName;
+                temps.WebColor = "none";
+                temps.Value = 0;
+                output.DefaultEnum = temps;
+                hadDefault = true;
+                oldValue = 1; //should start with 1 now.
+                output.Enums.Add(temps);
+            }
+            else if (possibleColor != "" && index == 1 && possibleColor != transparentName)
+            {
+                output.IsColor = true;
+            }
             EnumInfo info = new();
             info.Value = oldValue;
             info.Name = item.Identifier.ValueText;
             info.Words = info.Name.GetWords();
+            info.WebColor = "none";
+            info.Color = transparentName;
+            if (output.IsColor)
+            {
+                info.Color = possibleColor;
+                info.WebColor = possibleColor.ToWebColor();
+            }
             output.Enums.Add(info);
-            if (oldValue == 0)
+            if (oldValue == 0 && hadDefault == false)
             {
                 output.DefaultEnum = info;
             }
             oldValue++;
+            index++;
         }
         if (output.DefaultEnum is null)
         {
@@ -99,9 +131,7 @@ public partial class MySourceGenerator : IIncrementalGenerator
         emit.Emit();
     }
     //these are all the possible errors that will mean you cannot even create the custom enum since rules were violated.
-#pragma warning disable RS2008 // Enable analyzer release tracking
-    private static DiagnosticDescriptor TooManyEnums(string recordName) => new DiagnosticDescriptor("FirstID",
-#pragma warning restore RS2008 // Enable analyzer release tracking
+    private static DiagnosticDescriptor TooManyEnums(string recordName) => new ("FirstID",
         "Could not create enum",
         $"The record {recordName} had too many enums",
         "EnumTest",
@@ -109,36 +139,28 @@ public partial class MySourceGenerator : IIncrementalGenerator
         true
         );
 
-#pragma warning disable RS2008 // Enable analyzer release tracking
-    private static DiagnosticDescriptor NeedsPrivateEnum(string recordName) => new DiagnosticDescriptor("SecondID",
-#pragma warning restore RS2008 // Enable analyzer release tracking
+    private static DiagnosticDescriptor NeedsPrivateEnum(string recordName) => new ("SecondID",
         "Could not create enum",
         $"The record {recordName} needs to have the enum private",
         "EnumTest",
         DiagnosticSeverity.Error,
         true
         );
-#pragma warning disable RS2008 // Enable analyzer release tracking
-    private static DiagnosticDescriptor NoEnums(string recordName) => new DiagnosticDescriptor("ThirdID",
-#pragma warning restore RS2008 // Enable analyzer release tracking
+    private static DiagnosticDescriptor NoEnums(string recordName) => new ("ThirdID",
         "Could not create enum",
         $"The record {recordName} had blank enums",
         "EnumTest",
         DiagnosticSeverity.Error,
         true
         );
-#pragma warning disable RS2008 // Enable analyzer release tracking
-    private static DiagnosticDescriptor NotReadOnly(string recordName) => new DiagnosticDescriptor("FourthID",
-#pragma warning restore RS2008 // Enable analyzer release tracking
+    private static DiagnosticDescriptor NotReadOnly(string recordName) => new ("FourthID",
         "Could not create enum",
         $"The record {recordName} must be readonly",
         "EnumTest",
         DiagnosticSeverity.Error,
         true
         );
-#pragma warning disable RS2008 // Enable analyzer release tracking
-    private static DiagnosticDescriptor NotStartingEnum(string recordName) => new DiagnosticDescriptor("FourthID",
-#pragma warning restore RS2008 // Enable analyzer release tracking
+    private static DiagnosticDescriptor NotStartingEnum(string recordName) => new ("FourthID",
         "Could not create enum",
         $"The record {recordName} must start with words Enum",
         "EnumTest",

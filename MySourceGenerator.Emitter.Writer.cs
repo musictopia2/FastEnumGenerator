@@ -15,14 +15,37 @@ public partial class MySourceGenerator
                 w.WriteLine(w =>
                 {
                     w.Write("private ")
-                    .Write(_info.RecordName)
-                    .Write("(int value, string name, string words)");
+                    .Write(_info.RecordName);
+                    if (_info.IsColor == false)
+                    {
+                        w.Write("(int value, string name, string words)");
+                    }
+                    else
+                    {
+                        w.Write("(int value, string name, string words, string color, string webColor)");
+                    }
                 }).WriteCodeBlock(w =>
                 {
                     w.WriteLine("Value = value;")
                     .WriteLine("Name = name;")
                     .WriteLine("Words = words;")
                     .WriteLine("CompleteList.Add(this);");
+                    if (_info.IsColor)
+                    {
+                        //add more.
+                        w.WriteLine("Color = color;")
+                        .WriteLine("WebColor = webColor;")
+                        .WriteLine(w =>
+                        {
+                            w.Write("if (webColor != ")
+                            .AppendDoubleQuote("none")
+                            .Write(")");
+                        })
+                        .WriteCodeBlock(w =>
+                        {
+                            w.WriteLine("ColorList.Add(this);");
+                        });
+                    }
                 }).WriteLine(w =>
                 {
                     w.Write("public ")
@@ -44,6 +67,19 @@ public partial class MySourceGenerator
                         w.Write("Words = ")
                         .AppendDoubleQuote(w => w.Write(_info.DefaultEnum!.Words)).Write(";");
                     });
+                    if (_info.IsColor)
+                    {
+                        w.WriteLine(w =>
+                        {
+                            w.Write("Color = ")
+                            .AppendDoubleQuote("#00FFFFFF").Write(";");
+                        })
+                        .WriteLine(w =>
+                        {
+                            w.Write("WebColor = ")
+                            .AppendDoubleQuote("none").Write(";");
+                        });
+                    }
                 });
             }
             private void WriterAddConverterMethod(ICodeBlock w)
@@ -109,13 +145,20 @@ public partial class MySourceGenerator
                 w.Write("public partial record struct ")
                     .Write(_info.RecordName)
                     .Write(" : ")
-                    .BasicProcessesWrite()
-                    .Write("IFastEnumList")
-                    .SingleGenericWrite(_info.RecordName)
-                    .Write(", ")
-                    .SystemWrite()
-                    .Write("IComparable")
-                    .SingleGenericWrite(_info.RecordName);
+                    .BasicProcessesWrite();
+                if (_info.IsColor == false)
+                {
+                    w.Write("IFastEnumList");
+                }
+                else
+                {
+                    w.Write("IFastEnumColorList");
+                }
+                w.SingleGenericWrite(_info.RecordName)
+                .Write(", ")
+                .SystemWrite()
+                .Write("IComparable")
+                .SingleGenericWrite(_info.RecordName);
             }
             private void WriteCustomCollectionProcesses(ICodeBlock w)
             {
@@ -134,6 +177,24 @@ public partial class MySourceGenerator
                     .SingleGenericWrite(_info.RecordName)
                     .Write(".CompleteList => CompleteList;");
                 });
+                if (_info.IsColor)
+                {
+                    w.WriteLine(w =>
+                    {
+                        w.Write("public static ")
+                        .SingleCollectionInfoWrite(_info.RecordName)
+                        .Write(" ColorList { get; } = new();");
+                    })
+                    .WriteLine(w =>
+                    {
+                        w.SingleCollectionInfoWrite(_info.RecordName)
+                       .Write(" ")
+                       .BasicProcessesWrite()
+                       .Write("IFastEnumColorList")
+                       .SingleGenericWrite(_info.RecordName)
+                       .Write(".ColorList => ColorList;");
+                    });
+                }
             }
             private void WriteProperties(ICodeBlock w)
             {
@@ -144,6 +205,21 @@ public partial class MySourceGenerator
                 })
                 .WriteLine("public int Value { get; }")
                 .WriteLine(w => w.Write("public string Words { get; }").EmptyEqualsEndString());
+                if (_info.IsColor)
+                {
+                    w.WriteLine(w =>
+                    {
+                        w.Write("public string Color { get; } = ")
+                        .AppendDoubleQuote("#00FFFFFF")
+                        .Write(";");
+                    })
+                    .WriteLine(w =>
+                    {
+                        w.Write("public string WebColor { get; } = ")
+                        .AppendDoubleQuote("none")
+                        .Write(";");
+                    });
+                }
             }
             private void WriteCompare(ICodeBlock w)
             {
@@ -222,7 +298,23 @@ public partial class MySourceGenerator
                             .AppendDoubleQuote(w =>
                             {
                                 w.Write(item.Words);
-                            }).Write(");");
+                            });
+                            if (_info.IsColor == false)
+                            {
+                                w.Write(");");
+                            }
+                            else
+                            {
+                                w.Write(", ")
+                                .AppendDoubleQuote(w =>
+                                {
+                                    w.Write(item.Color);
+                                }).Write(", ")
+                                .AppendDoubleQuote(w =>
+                                {
+                                    w.Write(item.WebColor);
+                                }).Write(");");
+                            }
                         });
                 }
             }
