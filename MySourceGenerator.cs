@@ -1,9 +1,16 @@
-﻿namespace FastEnumGenerator;
+﻿using System.Diagnostics;
+namespace FastEnumGenerator;
 [Generator]
 public partial class MySourceGenerator : IIncrementalGenerator
 {
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
+//#if DEBUG
+//        if (Debugger.IsAttached == false)
+//        {
+//            Debugger.Launch();
+//        }
+//#endif
         IncrementalValuesProvider<MainInfo> declares = context.SyntaxProvider.CreateSyntaxProvider(
             (s, _) => IsSyntaxTarget(s),
             (t, _) => GetTarget(t))
@@ -79,7 +86,7 @@ public partial class MySourceGenerator : IIncrementalGenerator
                 oldValue = int.Parse(aa);
             }
             string name = item.Identifier.ValueText;
-            
+
             string possibleColor = name.ToColor(false);
             if (possibleColor != "" && index == 0 && possibleColor != transparentName)
             {
@@ -105,7 +112,7 @@ public partial class MySourceGenerator : IIncrementalGenerator
             info.Words = info.Name.GetWords();
             info.WebColor = "none";
             info.Color = transparentName;
-            if (output.IsColor)
+            if (output.IsColor && possibleColor != transparentName && possibleColor != "")
             {
                 info.Color = possibleColor;
                 info.WebColor = possibleColor.ToWebColor();
