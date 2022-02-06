@@ -98,7 +98,7 @@ public partial class MySourceGenerator
                     {
                         w.WriteLine(w =>
                         {
-                            w.Write("global::CommonBasicLibraries.AdvancedGeneralFunctionsAndProcesses.JsonSerializers.MultipleContextHelpers.AddConverter")
+                            w.Write("global::CommonBasicLibraries.AdvancedGeneralFunctionsAndProcesses.JsonSerializers.ConvertersHelpers.AddConverter")
                             .SingleGenericWrite(AddConverter)
                             .Write("();");
                         });

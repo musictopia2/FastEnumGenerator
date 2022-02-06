@@ -6,7 +6,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<LangVersion>latest</LangVersion>
 		<IncludeBuildOutput>false</IncludeBuildOutput>
-		<Version>1.0.7</Version>
+		<Version>1.0.8</Version>
 		<Authors>musictopia</Authors>
 		<Description>Source generator to create fast enum record structs</Description>
 		<PackageProjectUrl>https://github.com/musictopia2/FastEnumGenerator</PackageProjectUrl>
