@@ -115,7 +115,7 @@ public partial class MySourceGenerator : IIncrementalGenerator
             if (output.IsColor && possibleColor != transparentName && possibleColor != "")
             {
                 info.Color = possibleColor;
-                info.WebColor = possibleColor.ToWebColor();
+                info.WebColor = possibleColor.ToWebColor;
             }
             output.Enums.Add(info);
             if (oldValue == 0 && hadDefault == false)
